@@ -3,26 +3,27 @@ pipeline {
 
     stages {
 
-        stage('Install Python Dependencies') {
+        stage('Checkout') {
             steps {
-                sh 'pip install pytest pandas scikit-learn joblib'
+                checkout scm
             }
         }
 
-        stage('Train AI Model') {
+        stage('Build AI Image') {
             steps {
-                sh 'cd ai-module && python3 train_model.py'
+                sh 'docker build -t ai-module ./ai-module'
             }
         }
 
-        stage('AI Test Prioritization') {
+        stage('Run AI Prioritization') {
             steps {
-                sh 'cd ai-module && python3 predict_priority.py'
+                sh 'docker run --rm -v $PWD/ai-module:/app ai-module'
             }
         }
 
         stage('Run Tests') {
             steps {
+                sh 'pip install pytest'
                 sh 'pytest user-service'
                 sh 'pytest product-service'
                 sh 'pytest order-service'
@@ -30,7 +31,7 @@ pipeline {
             }
         }
 
-        stage('Build & Deploy') {
+        stage('Build & Deploy Microservices') {
             steps {
                 sh 'docker-compose up --build -d'
             }

@@ -1,6 +1,12 @@
-version: '3'
+version: '3.8'
 
 services:
+  ai-module:
+    build: ./ai-module
+    container_name: ai-module
+    volumes:
+      - ./ai-module:/app
+
   user-service:
     build: ./user-service
     ports:
@@ -20,6 +26,3 @@ services:
     build: ./payment-service
     ports:
       - "5004:5000"
-
-  ai-module:
-    build: ./ai-module
