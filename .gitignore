@@ -3,6 +3,7 @@ __pycache__/
 *.pkl
 *.csv
 .env
+pass.txt
 
 # Allow ai-module files
 !ai-module/*.pkl
