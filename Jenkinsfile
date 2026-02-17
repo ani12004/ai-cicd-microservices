@@ -1,40 +1,83 @@
 pipeline {
     agent any
 
+    environment {
+        REPO_URL = "https://github.com/ani12004/ai-cicd-microservices.git"
+        PROJECT_DIR = "ai-cicd-microservices"
+    }
+
     stages {
 
-        stage('Checkout') {
+        stage('Clean Workspace') {
             steps {
-                checkout scm
+                deleteDir()
             }
         }
 
-        stage('Build AI Image') {
+        stage('Clone Repository') {
             steps {
-                sh 'docker build -t ai-module ./ai-module'
+                git branch: 'main', url: "${REPO_URL}"
             }
         }
 
-        stage('Run AI Prioritization') {
+        stage('Train AI Model') {
             steps {
-                sh 'docker run --rm -v $PWD/ai-module:/app ai-module'
+                dir('ai-module') {
+                    sh 'pip3 install -r requirements.txt'
+                    sh 'python3 train_model.py'
+                }
             }
         }
 
-        stage('Run Tests') {
+        stage('Generate Test Priorities') {
             steps {
-                sh 'pip install pytest'
-                sh 'pytest user-service'
-                sh 'pytest product-service'
-                sh 'pytest order-service'
-                sh 'pytest payment-service'
+                dir('ai-module') {
+                    sh 'python3 predict_priority.py'
+                }
             }
         }
 
-        stage('Build & Deploy Microservices') {
+        stage('Build Docker Images') {
             steps {
-                sh 'docker-compose up --build -d'
+                sh 'docker-compose build'
             }
+        }
+
+        stage('Run Service Tests') {
+            steps {
+                dir('user-service') {
+                    sh 'pip3 install -r requirements.txt'
+                    sh 'pytest test_user.py'
+                }
+                dir('product-service') {
+                    sh 'pip3 install -r requirements.txt'
+                    sh 'pytest test_product.py'
+                }
+                dir('order-service') {
+                    sh 'pip3 install -r requirements.txt'
+                    sh 'pytest test_order.py'
+                }
+                dir('payment-service') {
+                    sh 'pip3 install -r requirements.txt'
+                    sh 'pytest test_payment.py'
+                }
+            }
+        }
+
+        stage('Deploy Services') {
+            steps {
+                sh 'docker-compose down || true'
+                sh 'docker-compose up -d'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline Completed Successfully 🚀"
+        }
+        failure {
+            echo "Pipeline Failed ❌"
         }
     }
 }
