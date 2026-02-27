@@ -7,6 +7,7 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/ani12004/ai-cicd-microservices.git'
@@ -16,6 +17,8 @@ pipeline {
         stage('Setup Python Virtual Environment') {
             steps {
                 sh """
+                    apt update || true
+                    apt install -y python3-venv python3-pip || true
                     python3 -m venv ${VENV_DIR}
                     source ${VENV_DIR}/bin/activate
                     pip install --upgrade pip
@@ -37,7 +40,8 @@ pipeline {
             steps {
                 sh """
                     source ${VENV_DIR}/bin/activate
-                    python3 ${PROJECT_DIR}/ai-module/predict_priority.py
+                    cd ${PROJECT_DIR}/ai-module
+                    python3 predict_priority.py
                 """
             }
         }
@@ -46,20 +50,36 @@ pipeline {
             steps {
                 sh """
                     source ${VENV_DIR}/bin/activate
-                    python3 ${PROJECT_DIR}/order-service/test_order.py
-                    python3 ${PROJECT_DIR}/user-service/test_user.py
-                    python3 ${PROJECT_DIR}/product-service/test_product.py
-                    python3 ${PROJECT_DIR}/payment-service/test_payment.py
+                    cd ${PROJECT_DIR}/order-service
+                    python3 test_order.py
+
+                    cd ${PROJECT_DIR}/user-service
+                    python3 test_user.py
+
+                    cd ${PROJECT_DIR}/product-service
+                    python3 test_product.py
+
+                    cd ${PROJECT_DIR}/payment-service
+                    python3 test_payment.py
                 """
             }
         }
 
         stage('Optional: Deploy Services') {
             steps {
-                sh "docker run -d --name order-service order-service || true"
-                sh "docker run -d --name user-service user-service || true"
-                sh "docker run -d --name product-service product-service || true"
-                sh "docker run -d --name payment-service payment-service || true"
+                sh """
+                    # Cleanup old containers if they exist
+                    docker rm -f order-service || true
+                    docker rm -f user-service || true
+                    docker rm -f product-service || true
+                    docker rm -f payment-service || true
+
+                    # Deploy containers
+                    docker run -d --name order-service order-service
+                    docker run -d --name user-service user-service
+                    docker run -d --name product-service product-service
+                    docker run -d --name payment-service payment-service
+                """
             }
         }
     }
