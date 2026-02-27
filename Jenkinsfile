@@ -2,89 +2,53 @@ pipeline {
     agent any
 
     environment {
-        REPO_URL = "https://github.com/ani12004/ai-cicd-microservices.git"
+        PROJECT_DIR = "/mnt/d/downloads/project-mid/ai-cicd-microservices"
     }
 
     stages {
-
-        stage('Clean Workspace') {
+        stage('Checkout') {
             steps {
-                deleteDir()
+                git branch: 'main', url: 'https://github.com/ani12004/ai-cicd-microservices.git'
             }
         }
 
-        stage('Clone Repository') {
+        stage('Install Python Dependencies') {
             steps {
-                git branch: 'main', url: "${REPO_URL}"
+                sh "pip install -r ${PROJECT_DIR}/ai-module/requirements.txt"
             }
         }
 
-        stage('Train AI Model') {
+        stage('Build Microservices') {
             steps {
-                dir('ai-module') {
-                    sh '''
-                        python3 -m venv venv
-                        . venv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
-                        python train_model.py
-                    '''
-                }
+                sh "docker build -t order-service ${PROJECT_DIR}/order-service"
+                sh "docker build -t user-service ${PROJECT_DIR}/user-service"
+                sh "docker build -t product-service ${PROJECT_DIR}/product-service"
+                sh "docker build -t payment-service ${PROJECT_DIR}/payment-service"
             }
         }
 
-        stage('Generate Test Priorities') {
+        stage('AI Test Prioritization') {
             steps {
-                dir('ai-module') {
-                    sh '''
-                        . venv/bin/activate
-                        python predict_priority.py
-                    '''
-                }
+                sh "python3 ${PROJECT_DIR}/ai-module/predict_priority.py"
             }
         }
 
-        stage('Run Service Tests') {
+        stage('Run Prioritized Tests') {
             steps {
-                sh '''
-                    python3 -m venv testenv
-                    . testenv/bin/activate
-                    pip install --upgrade pip
-                    pip install pytest
-
-                    pip install -r user-service/requirements.txt
-                    pip install -r product-service/requirements.txt
-                    pip install -r order-service/requirements.txt
-                    pip install -r payment-service/requirements.txt
-
-                    pytest user-service/test_user.py
-                    pytest product-service/test_product.py
-                    pytest order-service/test_order.py
-                    pytest payment-service/test_payment.py
-                '''
+                sh "python3 ${PROJECT_DIR}/order-service/test_order.py"
+                sh "python3 ${PROJECT_DIR}/user-service/test_user.py"
+                sh "python3 ${PROJECT_DIR}/product-service/test_product.py"
+                sh "python3 ${PROJECT_DIR}/payment-service/test_payment.py"
             }
         }
 
-        stage('Build Docker Images') {
+        stage('Optional: Deploy Services') {
             steps {
-                sh 'docker-compose build'
+                sh "docker run -d --name order-service order-service"
+                sh "docker run -d --name user-service user-service"
+                sh "docker run -d --name product-service product-service"
+                sh "docker run -d --name payment-service payment-service"
             }
-        }
-
-        stage('Deploy Services') {
-            steps {
-                sh 'docker-compose down || true'
-                sh 'docker-compose up -d'
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "✅ Pipeline Completed Successfully 🚀"
-        }
-        failure {
-            echo "❌ Pipeline Failed"
         }
     }
 }
