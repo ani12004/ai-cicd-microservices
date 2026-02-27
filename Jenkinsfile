@@ -2,7 +2,8 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_DIR = "/mnt/d/downloads/project-mid/ai-cicd-microservices"
+        // Path to your local project inside Jenkins workspace
+        PROJECT_DIR = "/var/jenkins_home/workspace/AI-CICD-Microservices"
     }
 
     stages {
@@ -14,6 +15,7 @@ pipeline {
 
         stage('Install Python Dependencies') {
             steps {
+                // Explicitly use pip installed inside Jenkins container
                 sh "pip install -r ${PROJECT_DIR}/ai-module/requirements.txt"
             }
         }
@@ -29,6 +31,7 @@ pipeline {
 
         stage('AI Test Prioritization') {
             steps {
+                // Explicitly use python3
                 sh "python3 ${PROJECT_DIR}/ai-module/predict_priority.py"
             }
         }
@@ -49,6 +52,15 @@ pipeline {
                 sh "docker run -d --name product-service product-service"
                 sh "docker run -d --name payment-service payment-service"
             }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished. Check test results and running containers."
+        }
+        failure {
+            echo "Pipeline failed. Check logs for errors."
         }
     }
 }
